@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2318345D'/%3E%3Crect x='7' y='17' width='4' height='9' fill='%23F08013'/%3E%3Crect x='14' y='11' width='4' height='15' fill='%23fff'/%3E%3Crect x='21' y='20' width='4' height='6' fill='%23fff' opacity='.6'/%3E%3C/svg%3E">
+<meta name="description" content="Tablero de preferencia electoral municipal en Jalisco rumbo a las alcaldías 2027, con trazabilidad del origen de cada cifra.">
+<title>Preferencia electoral municipal — Jalisco, alcaldías 2027</title>
+
+<!-- El tema se aplica antes del primer pintado. Leerlo al final del body
+     provocaba un destello blanco en cada carga a quien usa modo oscuro. -->
+<script>
+try{
+  if(localStorage.getItem('jal2027-tema')==='oscuro')
+    document.documentElement.setAttribute('data-tema','oscuro');
+}catch(e){/* sin almacenamiento disponible: se queda en tema claro */}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="./estilos.css">
+
+<!-- Versión mayor fijada: sin el @4 se sirve "latest" y una versión 5 con
+     cambios incompatibles rompería el tablero sin que nadie toque el archivo. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js" defer></script>
+<script src="./data.js" defer></script>
+<script src="./tablero.js" defer></script>
+</head>
+
+<body>
+
+<a class="oculto-visual" href="#s-panorama">Saltar al contenido</a>
+
+<header class="barra">
+  <div class="barra-fila">
+    <div class="marca" aria-hidden="true">
+      <svg viewBox="0 0 44 32" role="img" focusable="false">
+        <title>Marca del tablero</title>
+        <rect x="1"  y="17" width="8" height="14" rx="1.5" class="m3"/>
+        <rect x="12" y="10" width="8" height="21" rx="1.5" class="m2"/>
+        <rect x="23" y="3"  width="8" height="28" rx="1.5" class="m1"/>
+        <rect x="34" y="21" width="8" height="10" rx="1.5" class="m3"/>
+      </svg>
+    </div>
+    <div class="titulo-grupo">
+      <h1 class="titulo">Preferencia electoral municipal — Jalisco, alcaldías 2027</h1>
+      <p class="sello" id="sello">Cargando el tablero…</p>
+    </div>
+
+    <button type="button" class="btn-filtros" id="btn-filtros"
+            aria-expanded="false" aria-controls="controles">Filtros</button>
+
+    <div class="controles" id="controles">
+      <label class="oculto-visual" for="sel-muni">Municipio</label>
+      <select id="sel-muni"></select>
+
+      <label class="oculto-visual" for="sel-ola">Ola de medición</label>
+      <select id="sel-ola"></select>
+
+      <button type="button" id="btn-base" aria-pressed="false"
+              title="Alternar entre la base total y el voto efectivo, que reparte el voto no declarado">Base: total</button>
+
+      <button type="button" id="btn-tema" class="btn-icono"
+              title="Cambiar entre tema claro y oscuro"
+              aria-label="Cambiar entre tema claro y oscuro">&#9686;</button>
+
+      <button type="button" id="btn-imprimir" class="btn-icono"
+              title="Imprimir el tablero completo"
+              aria-label="Imprimir el tablero completo">&#9113;</button>
+    </div>
+  </div>
+
+  <nav class="cinta" id="cinta" aria-label="Secciones del tablero"></nav>
+</header>
+
+<main id="tablero">
+
+  <!-- ============================ PANORAMA ============================ -->
+  <section class="panel" id="s-panorama" aria-labelledby="h-panorama">
+    <button type="button" class="panel-cab" aria-expanded="true" aria-controls="c-panorama">
+      <h2 id="h-panorama">Panorama del municipio</h2>
+      <span class="panel-nota">Lectura de la plaza seleccionada en la ola elegida</span>
+      <span class="panel-flecha" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="panel-cuerpo" id="c-panorama">
+
+      <div class="nota alerta" id="alerta" role="status" aria-live="polite">
+        <span class="sk" style="display:block;height:17px"></span>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="rejilla">
+        <div class="tarjeta ancha">
+          <h3>La ventaja del puntero se mide contra el error de la diferencia, no contra el de la encuesta</h3>
+          <p class="porque">Ranking de la ola seleccionada. La línea horizontal sobre cada barra es el intervalo de confianza al 95 %: si los intervalos de dos partidos se traslapan, la diferencia entre ellos no es estadísticamente significativa.</p>
+          <div class="lienzo alto" data-vista="rank"><canvas id="g-rank"></canvas></div>
+        </div>
+
+        <div class="tarjeta ancha">
+          <h3 id="t-track">La evolución es el dato, no la foto</h3>
+          <p class="porque">Serie mensual completa por partido. Los puntos de la última ola provienen de etiquetas impresas en la fuente; los anteriores fueron reconstruidos de la gráfica de tracking y van marcados con asterisco en el detalle.</p>
+          <div class="lienzo alto" data-vista="track"><canvas id="g-track"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================== COMPARATIVO ========================== -->
+  <section class="panel" id="s-comparativo" aria-labelledby="h-comparativo">
+    <button type="button" class="panel-cab" aria-expanded="true" aria-controls="c-comparativo">
+      <h2 id="h-comparativo">Los siete municipios de un vistazo</h2>
+      <span class="panel-nota">Comparación simultánea, sin cambiar de plaza en el selector</span>
+      <span class="panel-flecha" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="panel-cuerpo" id="c-comparativo">
+
+      <div class="tarjeta ancha" style="margin-bottom:var(--gap)">
+        <h3>Termómetro de competitividad: dónde la elección sigue abierta</h3>
+        <p class="porque">Cada plaza se ordena por la holgura del puntero, es decir su ventaja sobre el segundo lugar menos el error de la diferencia. Si la holgura es negativa, la ventaja cabe dentro del error y la plaza está en empate técnico. La marca vertical es el umbral de significancia.</p>
+        <div class="termo" id="termo" data-vista="termo"></div>
+        <div class="termo-leyenda">
+          <span class="pastilla"><i style="background:var(--risk)"></i>Empate técnico — plaza en disputa</span>
+          <span class="pastilla"><i style="background:var(--warn)"></i>Ventaja estrecha — menos de 5 pp de holgura</span>
+          <span class="pastilla"><i style="background:var(--ok)"></i>Ventaja consolidada</span>
+        </div>
+      </div>
+
+      <div class="rejilla">
+        <div class="tarjeta ancha">
+          <h3>Intención de voto por partido en las siete plazas</h3>
+          <p class="porque">Municipios ordenados por la fuerza del puntero. Permite ver de un golpe qué partido gana dónde y con cuánto margen.</p>
+          <div class="lienzo xalto gira" data-vista="muniPartido"><canvas id="g-muni-partido"></canvas></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>La ventaja del puntero contra su propio margen de error</h3>
+          <p class="porque">Cada barra es la distancia entre el primero y el segundo lugar. La línea punteada es el margen de error de esa diferencia. Donde la barra no alcanza la línea, el resultado es un empate técnico.</p>
+          <div class="lienzo alto gira" data-vista="ventaja"><canvas id="g-ventaja"></canvas></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>El voto no declarado: cuánto del pastel sigue sin asignar</h3>
+          <p class="porque">Proporción de electores que no declara partido, por municipio. La línea marca el promedio de las siete plazas: por encima de ella, el resultado es más volátil.</p>
+          <div class="lienzo alto gira" data-vista="noDeclarado"><canvas id="g-no-decl"></canvas></div>
+        </div>
+
+        <div class="tarjeta ancha">
+          <h3>Matriz de fuerza: cada partido en cada plaza</h3>
+          <p class="porque">Intensidad de color proporcional al porcentaje de intención. Lee en horizontal para comparar partidos dentro de una plaza y en vertical para comparar una misma fuerza entre municipios.</p>
+          <div id="calor" data-vista="calor"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Rechazo a la reelección del alcalde en funciones</h3>
+          <p class="porque">Porcentaje que responde que NO votaría por el alcalde actual si buscara reelegirse. Solo aparecen los municipios donde la fuente hace esta pregunta.</p>
+          <div class="lienzo alto gira" data-vista="reeleccion"><canvas id="g-reelec"></canvas></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Composición del voto en la plaza seleccionada</h3>
+          <p class="porque">Estructura porcentual con el voto no declarado destacado en oscuro. Los porcentajes van escritos sobre cada segmento.</p>
+          <div class="lienzo alto" data-vista="dona"><canvas id="g-dona"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== EVOLUCIÓN =========================== -->
+  <section class="panel" id="s-evolucion" aria-labelledby="h-evolucion">
+    <button type="button" class="panel-cab" aria-expanded="true" aria-controls="c-evolucion">
+      <h2 id="h-evolucion">Movimiento en el tiempo</h2>
+      <span class="panel-nota">Qué cambió desde la primera medición de cada plaza</span>
+      <span class="panel-flecha" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="panel-cuerpo" id="c-evolucion">
+      <div class="rejilla">
+        <div class="tarjeta ancha">
+          <h3>Un mismo partido, siete trayectorias distintas</h3>
+          <p class="porque">Series de tracking del partido elegido en las siete plazas a la vez. Si todas se mueven igual, el fenómeno es estatal; si divergen, es local y tiene explicación municipal.</p>
+          <div class="control-local">
+            <label class="oculto-visual" for="sel-partido">Partido a comparar</label>
+            <select id="sel-partido"></select>
+          </div>
+          <div class="lienzo alto" data-vista="comparaPartido"><canvas id="g-compara"></canvas></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Quién ganó y quién perdió terreno desde la primera ola</h3>
+          <p class="porque">Variación del partido puntero en puntos porcentuales, entre la primera y la última medición de cada plaza. A la derecha del cero creció; a la izquierda se desgastó.</p>
+          <div class="lienzo alto" data-vista="delta"><canvas id="g-delta"></canvas></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>El indeciso como bolsa disponible</h3>
+          <p class="porque">Evolución del voto no declarado en las siete plazas. Un indeciso al alza indica que el electorado se está soltando de sus anclas partidistas.</p>
+          <div class="lienzo alto" data-vista="noDec"><canvas id="g-no-dec"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ INTERNAS ============================ -->
+  <section class="panel" id="s-internas" aria-labelledby="h-internas">
+    <button type="button" class="panel-cab" aria-expanded="true" aria-controls="c-internas">
+      <h2 id="h-internas">Internas de los partidos</h2>
+      <span class="panel-nota">Universo condicional: solo quienes ya declararon ese partido</span>
+      <span class="panel-flecha" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="panel-cuerpo" id="c-internas">
+      <p class="nota">Estas cifras <b>no son comparables</b> con las de intención de voto. La preferencia de precandidato (U2) se calcula solo sobre quienes declararon ese partido; la intención de voto (U1), sobre el total de entrevistados. Nunca se suman ni se grafican en el mismo eje.</p>
+      <div class="rejilla">
+        <div class="tarjeta ancha">
+          <h3>Dónde la candidatura ya está resuelta y dónde sigue abierta</h3>
+          <p class="porque">Ventaja del precandidato puntero sobre el segundo, dentro de cada partido y municipio. Barras cortas significan interna disputada; barras largas, candidato natural. Cada barra puede provenir de una ola distinta: la ola efectiva se indica en el detalle emergente.</p>
+          <div class="lienzo xalto gira" data-vista="internas"><canvas id="g-internas"></canvas></div>
+        </div>
+        <div class="tarjeta ancha">
+          <h3>Detalle de la interna en la plaza seleccionada</h3>
+          <p class="porque">Preferencia interna y voto efectivo estimado sobre el total del electorado. La última columna es la que compara peras con peras.</p>
+          <div id="tabla" data-vista="tabla"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================== TRAZABILIDAD ========================== -->
+  <section class="panel" id="s-traza" aria-labelledby="h-traza">
+    <button type="button" class="panel-cab" aria-expanded="false" aria-controls="c-traza">
+      <h2 id="h-traza">Trazabilidad y método</h2>
+      <span class="panel-nota">Origen de cada cifra del tablero</span>
+      <span class="panel-flecha" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="panel-cuerpo" id="c-traza" hidden>
+      <div id="traza" data-vista="traza"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pie">
+  <div>
+    <p><b>Fuente:</b> Massive Caller. <i>Jalisco: intención al voto, alcaldías 2027</i>, corte 12 de agosto de 2026. N = 600 por municipio, margen de error declarado ±4.3 %.</p>
+    <p><b>Nota de método:</b> el margen de error recalculado con z = 1.96 y p = 0.5 para N = 600 arroja ±4.0 %; la discrepancia se reporta y no se corrige la cifra de la fuente. La casa encuestadora no publica factores de ponderación ni post-estratificación, por lo que no se supone ninguno.</p>
+    <p><b>*</b> Las cifras marcadas con asterisco fueron reconstruidas de las gráficas de tracking, que no incluyen tabla de valores. Error máximo de calibración: 0.257 puntos porcentuales.</p>
+    <p><b>Derechos:</b> D.R. © Massive Caller S.A. de C.V., 2026. Reproducción sujeta a referencia al autor. No difundir durante veda electoral. — Elaboración: Alejandro Arjona.</p>
+  </div>
+</footer>
+
+<noscript>
+  <div class="falla">
+    <h2>El tablero necesita JavaScript</h2>
+    <p>Las gráficas y las tablas se construyen en el navegador a partir de <code>data.js</code>. Activa JavaScript para consultarlo. Los libros de auditoría en formato XLSX del repositorio contienen las mismas cifras sin depender del navegador.</p>
+  </div>
+</noscript>
+
+</body>
+</html>

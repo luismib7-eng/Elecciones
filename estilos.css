@@ -1,0 +1,491 @@
+/* ===================================================================
+   Tablero de preferencia electoral municipal — Jalisco, alcaldías 2027
+   Hoja de estilos. Mobile-first, sin dependencias externas.
+   =================================================================== */
+
+/* -------------------------------------------------------------------
+   1. TOKENS
+   Los tonos partidistas conservan el color oficial de cada fuerza.
+   Los tonos de interfaz se separaron en pares fondo/tinta porque el
+   mismo valor no puede servir para rellenar una barra y para escribir
+   texto encima: --warn como texto sobre blanco daba 4.26:1 y reprobaba
+   el mínimo AA de 4.5:1.
+   ------------------------------------------------------------------- */
+:root{
+  /* Centinela de carga. tablero.js lee esta propiedad: si no llega,
+     sabe que la hoja de estilos no se sirvió y lo avisa en pantalla
+     en vez de dejar la página como HTML crudo sin explicación. */
+  --css-ok:1;
+
+  /* Partidos */
+  --morena:#B71C1C; --pan:#0033A0; --pri:#E31B23; --pvem:#3E8E30;
+  --mc:#FF8200; --pt:#E30613; --otros:#707070; --nodec:#1A1A1A;
+
+  /* Texto y superficies */
+  --ink:#15202B; --ink-soft:#3D4C5A; --muted:#546373;
+  --surface:#FFFFFF; --surface-2:#F6F8FA; --surface-3:#EBF0F5;
+  --canvas:#F4F7F9; --topbar:#FFFFFF;
+  --line:#DFE5EC; --line-soft:#EFF3F7; --grid-line:#E7ECF2;
+
+  /* Marca */
+  --brand:#18345D; --brand-deep:#0E2340; --accent:#F08013;
+
+  /* Semáforo: -bg rellena, -ink escribe */
+  --ok:#2E7D32;   --ok-ink:#1F5C24;
+  --warn:#B06A2C; --warn-ink:#8A4B12;
+  --risk:#C0392B; --risk-ink:#A32D20;
+
+  --shadow:0 1px 2px rgba(16,32,48,.05);
+  --shadow-lift:0 6px 20px rgba(16,32,48,.10);
+
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --gap:clamp(10px,1.6vw,16px);
+  --pad:clamp(12px,2.2vw,18px);
+  --maxw:1680px;
+
+  /* Alto real de la barra superior. Lo escribe el script en cada
+     cambio de tamaño; los anclajes y el observador dependen de él. */
+  --alto-barra:112px;
+
+  /* Escala tipográfica fluida */
+  --t-xs:clamp(10px,.62rem + .12vw,11.5px);
+  --t-sm:clamp(11.5px,.7rem + .15vw,12.5px);
+  --t-md:clamp(13px,.78rem + .2vw,14px);
+  --t-lg:clamp(14px,.82rem + .3vw,15.5px);
+  --t-xl:clamp(20px,1.1rem + 1.1vw,27px);
+}
+
+html[data-tema="oscuro"]{
+  --ink:#E8EEF4; --ink-soft:#BCC9D6; --muted:#97A7B7;
+  --surface:#141C24; --surface-2:#1A242E; --surface-3:#222E3A;
+  --canvas:#0E151B; --topbar:#141C24;
+  --line:#2A3744; --line-soft:#222E3A; --grid-line:#243140;
+  --brand:#7FA8DC; --brand-deep:#0A121A; --accent:#F5A04B;
+
+  --ok:#4CAF50;   --ok-ink:#7FD684;
+  --warn:#D08C45; --warn-ink:#F0B77A;
+  --risk:#E05646; --risk-ink:#FF9184;
+
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+  --shadow-lift:0 6px 20px rgba(0,0,0,.45);
+
+  --morena:#E04545; --pan:#5B8DEF; --pri:#FF5A5F; --pvem:#5FD16A;
+  --mc:#FFA033; --pt:#FF7B6B; --otros:#8A97A4; --nodec:#DCE5EE;
+}
+
+/* -------------------------------------------------------------------
+   2. BASE
+   ------------------------------------------------------------------- */
+*,*::before,*::after{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  /* overflow-x:clip corta el desbordamiento lateral residual sin crear
+     contexto de scroll, de modo que position:sticky sigue funcionando.
+     Es una red de seguridad: los desbordes reales se corrigen abajo. */
+  overflow-x:clip;
+  background:var(--canvas);
+  color:var(--ink);
+  font:var(--t-md)/1.55 Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+
+h1,h2,h3{font-family:Poppins,system-ui,Arial,sans-serif;margin:0}
+
+img,svg,canvas{max-width:100%}
+
+.oculto-visual{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+/* El salto al contenido se muestra al recibir el foco por teclado. */
+a.oculto-visual:focus{
+  position:fixed;top:8px;left:8px;z-index:60;
+  width:auto;height:auto;margin:0;padding:11px 16px;clip:auto;
+  background:var(--brand-deep);color:#fff;border-radius:var(--r-sm);
+  font-weight:600;text-decoration:none;
+}
+
+:where(button,select,a,summary,[tabindex]):focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm);
+}
+
+/* -------------------------------------------------------------------
+   3. BARRA SUPERIOR
+   ------------------------------------------------------------------- */
+.barra{
+  background:var(--topbar);border-bottom:1px solid var(--line);
+  padding:10px clamp(12px,2.4vw,22px) 0;
+  position:sticky;top:0;z-index:40;box-shadow:var(--shadow);
+}
+.barra-fila{
+  display:flex;align-items:center;gap:clamp(10px,1.6vw,18px);
+  max-width:var(--maxw);margin:0 auto;
+}
+/* Marca: cuatro barras que citan la gráfica que domina el tablero. */
+.marca{
+  width:52px;height:38px;flex:0 0 auto;display:grid;place-items:center;
+  border-right:1px solid var(--line);padding-right:12px;
+}
+.marca svg{width:100%;height:auto;display:block}
+.marca .m1{fill:var(--brand)}
+.marca .m2{fill:var(--accent)}
+.marca .m3{fill:var(--line)}
+html[data-tema="oscuro"] .marca .m3{fill:var(--surface-3)}
+.titulo-grupo{min-width:0;flex:1 1 auto}
+.titulo{
+  font-size:var(--t-lg);font-weight:700;letter-spacing:-.2px;line-height:1.2;
+}
+.sello{
+  font-size:var(--t-xs);color:var(--muted);margin-top:3px;
+  overflow-wrap:anywhere;
+}
+
+/* Controles: fila propia en móvil, alineados a la derecha en escritorio */
+.controles{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:10px 0 0;
+}
+.controles select,.controles button{flex:1 1 auto}
+
+select,button{
+  font:var(--t-sm)/1 Inter,system-ui,Arial,sans-serif;
+  min-height:44px;                 /* objetivo táctil mínimo */
+  padding:10px 12px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--ink);cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,color .18s ease;
+}
+select{
+  /* Espacio para la flecha nativa; evita que el texto la pise en iOS */
+  padding-right:30px;max-width:100%;
+}
+select:hover,button:hover{border-color:var(--brand)}
+button.activo{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn-icono{flex:0 0 auto;width:44px;padding:0;display:grid;place-items:center;font-size:15px}
+
+/* Interruptor de filtros, solo visible en pantallas angostas */
+.btn-filtros{display:none}
+
+.cinta{
+  max-width:var(--maxw);margin:10px auto 0;
+  display:flex;gap:6px;overflow-x:auto;padding:0 0 9px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.cinta::-webkit-scrollbar{display:none}
+.cinta a{
+  font-size:var(--t-xs);padding:8px 14px;border-radius:22px;text-decoration:none;
+  display:inline-flex;align-items:center;min-height:44px;
+  color:var(--muted);background:var(--surface-2);border:1px solid var(--line);
+  white-space:nowrap;transition:color .18s ease,border-color .18s ease,background .18s ease;
+}
+.cinta a:hover{color:var(--ink);border-color:var(--brand)}
+.cinta a[aria-current="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+html[data-tema="oscuro"] .cinta a[aria-current="true"]{color:var(--brand-deep)}
+
+/* -------------------------------------------------------------------
+   4. ESTRUCTURA
+   ------------------------------------------------------------------- */
+main{
+  padding:var(--gap) clamp(12px,2.4vw,22px) 72px;
+  max-width:var(--maxw);margin:0 auto;
+}
+
+.panel{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);margin-bottom:var(--gap);
+  box-shadow:var(--shadow);
+  scroll-margin-top:calc(var(--alto-barra) + 8px);
+}
+.panel-cab{
+  display:flex;align-items:center;gap:11px;width:100%;
+  padding:13px var(--pad);min-height:52px;
+  border:0;border-bottom:1px solid var(--line-soft);
+  border-radius:var(--r-md) var(--r-md) 0 0;
+  background:var(--surface-2);color:var(--ink);
+  cursor:pointer;text-align:left;
+}
+.panel-cab:hover{background:var(--surface-3);border-color:var(--line-soft)}
+.panel-cab h2{font-size:var(--t-md);font-weight:700;letter-spacing:-.1px;flex:0 0 auto}
+.panel-nota{font-size:var(--t-xs);color:var(--muted);flex:1 1 auto;min-width:0}
+.panel-flecha{
+  width:26px;height:26px;border-radius:var(--r-sm);flex:0 0 auto;
+  border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  display:grid;place-items:center;font-size:10px;
+  transition:transform .22s ease;
+}
+.panel-cab[aria-expanded="false"] .panel-flecha{transform:rotate(-90deg)}
+.panel-cab[aria-expanded="false"]{border-radius:var(--r-md);border-bottom-color:transparent}
+.panel-cuerpo{padding:var(--pad)}
+.panel-cuerpo[hidden]{display:none}
+
+/* -------------------------------------------------------------------
+   5. INDICADORES
+   ------------------------------------------------------------------- */
+.kpis{
+  display:grid;gap:10px;margin-bottom:var(--gap);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+}
+.kpi{
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:12px 14px;min-width:0;
+}
+.kpi .lab{font-size:var(--t-xs);color:var(--muted);font-weight:600;letter-spacing:.1px}
+.kpi .val{
+  font-family:Poppins,system-ui,Arial,sans-serif;
+  font-size:var(--t-xl);font-weight:700;margin-top:4px;line-height:1.12;
+  overflow-wrap:anywhere;
+}
+/* Los indicadores cuyo valor es una frase y no una cifra bajan de
+   escalón: una cantidad y un veredicto no compiten por el mismo peso. */
+.kpi .val.frase{font-size:var(--t-lg);line-height:1.25}
+.kpi .sub{font-size:var(--t-xs);color:var(--muted);margin-top:4px}
+.kpi svg{display:block;margin-top:7px}
+
+/* -------------------------------------------------------------------
+   6. REJILLA DE TARJETAS
+   minmax(min(100%,420px),1fr) impide que una columna de 420px fuerce
+   scroll lateral cuando el contenedor mide menos que eso.
+   ------------------------------------------------------------------- */
+.rejilla{
+  display:grid;gap:var(--gap);
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));
+}
+.tarjeta{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:14px var(--pad);min-width:0;
+}
+.tarjeta.ancha{grid-column:1/-1}
+.tarjeta h3{
+  font-size:var(--t-md);font-weight:600;letter-spacing:-.1px;
+  line-height:1.35;margin-bottom:4px;
+}
+.tarjeta .porque{
+  margin:0 0 12px;font-size:var(--t-xs);color:var(--muted);
+  line-height:1.5;max-width:78ch;
+}
+.tarjeta .control-local{margin-bottom:10px;max-width:320px}
+
+/* Lienzos: alto fluido, sin saltos entre breakpoints */
+.lienzo{position:relative;height:clamp(250px,42vw,300px)}
+.lienzo.alto{height:clamp(280px,52vw,380px)}
+.lienzo.xalto{height:clamp(320px,64vw,460px)}
+@media (min-width:1100px){
+  .lienzo{height:300px}
+  .lienzo.alto{height:380px}
+  .lienzo.xalto{height:460px}
+}
+/* Barras horizontales en móvil: el alto crece con el número de plazas */
+@media (max-width:700px){
+  .lienzo.gira{height:clamp(300px,78vw,420px)}
+  .lienzo.xalto.gira{height:clamp(430px,124vw,640px)}
+}
+
+/* -------------------------------------------------------------------
+   7. TERMÓMETRO DE COMPETITIVIDAD
+   ------------------------------------------------------------------- */
+.termo{display:grid;gap:6px}
+.termo-fila{
+  display:grid;gap:10px;align-items:center;
+  grid-template-columns:minmax(120px,190px) minmax(0,1fr) 128px;
+  padding:8px 9px;border-radius:var(--r-sm);
+}
+.termo-fila:hover{background:var(--surface-2)}
+.termo-mun{font-size:var(--t-sm);font-weight:600;min-width:0}
+.termo-duelo{font-size:var(--t-xs);color:var(--muted);font-weight:400}
+.termo-pista{
+  position:relative;height:22px;background:var(--surface-3);
+  border-radius:11px;overflow:hidden;min-width:0;
+}
+.termo-barra{
+  position:absolute;inset:0 auto 0 0;border-radius:11px;width:0;
+  transition:width .9s cubic-bezier(.22,.8,.28,1);
+  will-change:width;
+}
+.termo-umbral{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink-soft);opacity:.65}
+.termo-et{
+  font-size:var(--t-sm);text-align:right;font-weight:700;
+  font-family:Poppins,system-ui,Arial,sans-serif;
+}
+.termo-et small{display:block;font-weight:400;color:var(--muted);font-size:var(--t-xs)}
+.termo-leyenda{
+  font-size:var(--t-xs);color:var(--muted);margin-top:12px;
+  display:flex;gap:14px;flex-wrap:wrap;
+}
+.pastilla{display:inline-flex;align-items:center;gap:6px}
+.pastilla i{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+
+/* En pantallas angostas la pista ocupa su propia línea: así desaparecen
+   las dos columnas de ancho fijo que provocaban el scroll lateral. */
+@media (max-width:720px){
+  .termo-fila{
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"mun et" "pista pista";
+    row-gap:7px;
+  }
+  .termo-mun{grid-area:mun}
+  .termo-et{grid-area:et}
+  .termo-pista{grid-area:pista}
+}
+
+/* -------------------------------------------------------------------
+   8. TABLAS
+   Todas viven dentro de .tabla-scroll: contenedor con desplazamiento
+   propio, enfocable por teclado y con sombra de borde que avisa que
+   hay más columnas a la derecha.
+   ------------------------------------------------------------------- */
+.tabla-scroll{
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  scrollbar-width:thin;
+  background:
+    linear-gradient(to right,var(--surface) 30%,rgba(255,255,255,0)) left/26px 100% no-repeat,
+    linear-gradient(to left,var(--surface) 30%,rgba(255,255,255,0)) right/26px 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%,rgba(16,32,48,.13),transparent) left/12px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%,rgba(16,32,48,.13),transparent) right/12px 100% no-repeat;
+  background-attachment:local,local,scroll,scroll;
+}
+table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{
+  font-size:var(--t-xs);color:var(--muted);font-weight:700;
+  position:sticky;top:0;background:var(--surface);z-index:1;
+}
+td.n{font-family:Poppins,system-ui,Arial,sans-serif;font-weight:600}
+caption{
+  caption-side:top;text-align:left;padding:0 0 8px;
+  font-size:var(--t-sm);font-weight:600;
+}
+
+.punto{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+/* El PT se distingue por trama, no por tono: su rojo y el del PRI son
+   casi el mismo color. El relleno va en background-color (no en el
+   atajo background) para no borrar la trama. */
+.punto.rayado{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.92) 0 2px,transparent 2px 4px)}
+
+.etiqueta{
+  display:inline-block;font-size:var(--t-xs);padding:2px 8px;border-radius:20px;
+  background:var(--surface-3);color:var(--muted);margin-left:7px;
+  vertical-align:middle;font-weight:600;white-space:nowrap;
+}
+.etiqueta.abierta{background:#FCE4D6;color:#8A4B12}
+html[data-tema="oscuro"] .etiqueta.abierta{background:#4A2E14;color:#F0B77A}
+.est{font-size:var(--t-xs);color:var(--warn-ink)}
+
+/* Matriz de calor */
+.calor td{text-align:center;font-family:Poppins,system-ui,Arial,sans-serif;font-weight:600}
+.calor th,.calor td{border:2px solid var(--surface)}
+.calor th:first-child,.calor td:first-child{
+  text-align:left;position:sticky;left:0;z-index:2;
+  background:var(--surface);color:var(--ink);font-weight:600;
+}
+.calor th:first-child{z-index:3}
+.calor .cab-partido{display:inline-flex;align-items:center;gap:5px;color:var(--ink)}
+
+/* -------------------------------------------------------------------
+   9. NOTAS Y ESTADOS
+   ------------------------------------------------------------------- */
+.nota{
+  background:var(--surface-2);border-left:3px solid var(--accent);
+  border-radius:var(--r-sm);padding:11px 14px;font-size:var(--t-sm);
+  margin-bottom:var(--gap);line-height:1.55;
+}
+.nota.alerta{background:#FFF7E8;border:1px solid #F5D9A8;border-left:4px solid var(--accent)}
+html[data-tema="oscuro"] .nota.alerta{background:#2B2113;border-color:#5A431F}
+.pie-nota{font-size:var(--t-xs);color:var(--muted);margin:9px 0 0;line-height:1.5}
+
+.falla{
+  max-width:640px;margin:56px auto;padding:22px 24px;
+  background:var(--surface);border:1px solid var(--line);
+  border-left:4px solid var(--risk);border-radius:var(--r-md);
+}
+.falla h2{font-size:var(--t-lg);margin-bottom:8px}
+.falla p{margin:0 0 8px;font-size:var(--t-sm);color:var(--ink-soft)}
+.falla code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;
+  background:var(--surface-3);padding:1px 5px;border-radius:4px;
+}
+
+/* Esqueletos de carga */
+.sk{
+  background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 37%,var(--surface-2) 63%);
+  background-size:400% 100%;animation:sk-brillo 1.4s ease infinite;
+  border-radius:var(--r-sm);
+}
+.sk-lienzo{position:absolute;inset:0}
+@keyframes sk-brillo{from{background-position:100% 0}to{background-position:-100% 0}}
+
+/* -------------------------------------------------------------------
+   10. PIE
+   ------------------------------------------------------------------- */
+.pie{
+  border-top:1px solid var(--line);padding:18px clamp(12px,2.4vw,22px);
+  font-size:var(--t-xs);color:var(--muted);background:var(--surface);line-height:1.65;
+}
+.pie b{color:var(--ink)}
+.pie div{max-width:var(--maxw);margin:0 auto}
+.pie p{margin:0 0 6px;max-width:100ch}
+
+/* -------------------------------------------------------------------
+   11. ADAPTACIONES POR TAMAÑO
+   ------------------------------------------------------------------- */
+@media (max-width:720px){
+  /* En pantallas estrechas el subtítulo del panel compite con su título
+     y se lleva tres renglones; el título ya dice lo necesario. */
+  .panel-nota{display:none}
+}
+@media (max-width:860px){
+  /* Los filtros se pliegan tras un botón y se despliegan en una capa
+     por encima del contenido, no dentro de la barra fija: si empujaran
+     la barra, el encabezado pegajoso se comía casi la mitad de la
+     pantalla mientras el panel estuviera abierto. */
+  .btn-filtros{display:flex;flex:0 0 auto;gap:7px;align-items:center}
+  .barra{position:sticky;padding-top:9px}
+  .barra-fila{position:relative}
+  .controles{display:none}
+  .controles.abierto{
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;
+    position:absolute;top:calc(100% + 9px);left:0;right:0;z-index:45;
+    padding:12px;border:1px solid var(--line);border-radius:var(--r-md);
+    background:var(--surface);box-shadow:var(--shadow-lift);
+  }
+  .controles select,#btn-base{grid-column:1/-1;width:100%}
+  .btn-icono{width:100%}
+  .marca{display:none}
+}
+@media (min-width:861px){
+  .controles{margin-left:auto;padding:0;justify-content:flex-end}
+  .controles select,.controles button{flex:0 0 auto}
+  .controles select{min-width:150px}
+}
+@media (min-width:1600px){
+  /* Monitores 4K: se privilegian tres columnas antes que estirar dos. */
+  .rejilla{grid-template-columns:repeat(auto-fit,minmax(min(100%,500px),1fr))}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important;
+  }
+}
+
+/* -------------------------------------------------------------------
+   12. IMPRESIÓN
+   El script abre todos los paneles y dibuja las gráficas pendientes
+   antes de imprimir; aquí solo se limpia el cromo de pantalla.
+   ------------------------------------------------------------------- */
+@media print{
+  .barra,.cinta,.controles,.panel-flecha,.btn-filtros{display:none !important}
+  body{background:#fff}
+  main{padding:0;max-width:none}
+  .panel,.tarjeta{break-inside:avoid;box-shadow:none}
+  .panel-cuerpo[hidden]{display:block !important}
+  .tabla-scroll{overflow:visible;background:none}
+  .lienzo,.lienzo.alto,.lienzo.xalto{height:300px}
+  a[href^="#"]{text-decoration:none;color:inherit}
+}
