@@ -35,7 +35,7 @@
    se fueron en auditar un despliegue que no correspondía a los archivos
    entregados; con el sello, saber qué versión está viva cuesta un vistazo
    al pie de página. */
-var VERSION = "2026-09-15.05";
+var VERSION = "2026-09-15.06";
 
 function versionDelHtml() {
   var m = document.querySelector('meta[name="tablero-version"]');
@@ -233,6 +233,38 @@ function resolverDatos(seguir) {
       fallaDeDatos(String((e && e.message) || e));
     });
 }
+
+/* Las excepciones lanzadas dentro del bucle de animación de Chart.js no
+   pasan por ningún try/catch del tablero: ocurren en su propio
+   requestAnimationFrame. Este oyente las recoge, las nombra en pantalla
+   y evita que un fallo así vuelva a manifestarse solo como una interfaz
+   congelada y sin explicación. */
+var erroresAvisados = 0;
+window.addEventListener("error", function (e) {
+  if (erroresAvisados >= 1) return;
+  erroresAvisados++;
+  var caja = document.createElement("div");
+  caja.setAttribute("role", "alert");
+  caja.style.cssText =
+    "font:13px/1.5 system-ui,Arial,sans-serif;background:#8A1F1A;color:#fff;" +
+    "padding:10px 16px;display:flex;gap:12px;align-items:center";
+  var texto = document.createElement("span");
+  texto.style.flex = "1";
+  texto.textContent =
+    "Error de ejecución: " + ((e && e.message) || "desconocido") +
+    ". Puede que alguna gráfica deje de responder; recarga la página. " +
+    "Compilación " + VERSION + ".";
+  var cerrar = document.createElement("button");
+  cerrar.type = "button";
+  cerrar.textContent = "Cerrar";
+  cerrar.style.cssText =
+    "background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6);" +
+    "border-radius:5px;padding:5px 10px;cursor:pointer;min-height:auto";
+  cerrar.addEventListener("click", function () { caja.remove(); });
+  caja.appendChild(texto);
+  caja.appendChild(cerrar);
+  if (document.body) document.body.insertBefore(caja, document.body.firstChild);
+});
 
 function iniciarTablero() {
 comprobarVersion();
@@ -635,7 +667,29 @@ function aplicarDefaults() {
   f.font.family = "Inter, system-ui, Arial, sans-serif";
   f.font.size = 11;
   f.color = c("--muted");
-  f.animation = sinMovimiento() ? false : { duration: 600, easing: "easeOutQuart" };
+  /* Se asignan las propiedades una a una; NO se sustituye el objeto.
+     Chart.js construye la especificación de animación de cada propiedad
+     copiando exactamente las claves de Chart.defaults.animation:
+
+        const e = Object.keys(defaults.animation);
+        for (const k of e) r[k] = a[k];
+
+     Al reemplazar el objeto por uno con solo duration y easing, las
+     claves type, from, to, fn, delay y loop desaparecían de esa lista y
+     se perdían en todas las propiedades animadas. Sin type, Chart.js cae
+     en Ds[typeof valor]; para un color eso es Ds["string"], que no
+     existe, y this._fn queda undefined.
+
+     El error no aparecía al cargar ni al cambiar de selector, porque el
+     tick solo invoca _fn cuando el valor cambia de verdad. El primer
+     cambio real de color es el hover sobre cualquier gráfica, y ahí
+     estallaba «this._fn is not a function» dentro del bucle de animación
+     de Chart.js. Al ser una excepción no capturada dentro de su
+     requestAnimationFrame, el bucle no se volvía a programar: el
+     animador moría y, a partir de ese momento, ninguna gráfica se
+     repintaba. De ahí que el tablero se quedara congelado. */
+  f.animation.duration = sinMovimiento() ? 0 : 600;
+  f.animation.easing = "easeOutQuart";
   f.plugins.legend.labels.color = c("--muted");
   f.plugins.legend.labels.usePointStyle = true;
   f.plugins.legend.labels.boxWidth = 7;

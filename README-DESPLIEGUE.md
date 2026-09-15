@@ -94,7 +94,7 @@ ganancia.
 ## Comprobar en cinco segundos qué versión está publicada
 
 Cada entrega lleva un sello de compilación. Abre el sitio y mira el pie de
-página: dice **Compilación 2026-09-15.05**. Si dice otra cosa, o no dice nada,
+página: dice **Compilación 2026-09-15.06**. Si dice otra cosa, o no dice nada,
 el servidor no está sirviendo estos archivos y cualquier auditoría sobre esa
 página describe código distinto del entregado.
 
@@ -102,7 +102,7 @@ página describe código distinto del entregado.
 —porque solo se subió parte del paquete, o porque el navegador o el CDN de Pages
 guardan una copia vieja— aparece una franja naranja arriba con las dos versiones.
 
-Las rutas propias llevan `?v=2026-09-15.05`. Ese sufijo obliga al navegador y al
+Las rutas propias llevan `?v=2026-09-15.06`. Ese sufijo obliga al navegador y al
 CDN a pedir copias nuevas en lugar de reutilizar las guardadas, que es la causa
 habitual de que una corrección subida no se vea.
 
