@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
+<!-- Sello de compilación. tablero.js lo compara con el suyo y avisa si el
+     servidor está mezclando versiones o sirviendo una copia en caché. -->
+<meta name="tablero-version" content="2026-09-15.05">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2318345D'/%3E%3Crect x='7' y='17' width='4' height='9' fill='%23F08013'/%3E%3Crect x='14' y='11' width='4' height='15' fill='%23fff'/%3E%3Crect x='21' y='20' width='4' height='6' fill='%23fff' opacity='.6'/%3E%3C/svg%3E">
 <meta name="description" content="Tablero de preferencia electoral municipal en Jalisco rumbo a las alcaldías 2027, con trazabilidad del origen de cada cifra.">
 <title>Preferencia electoral municipal — Jalisco, alcaldías 2027</title>
@@ -30,13 +33,13 @@ try{
   .lienzo>canvas{display:block}
   #termo,#calor,#tabla,#traza,#kpis{min-height:60px}
 </style>
-<link rel="stylesheet" href="./estilos.css">
+<link rel="stylesheet" href="./estilos.css?v=2026-09-15.05">
 
 <!-- Versión mayor fijada: sin el @4 se sirve "latest" y una versión 5 con
      cambios incompatibles rompería el tablero sin que nadie toque el archivo. -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js" defer></script>
-<script src="./data.js" defer></script>
-<script src="./tablero.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+<script src="./data.js?v=2026-09-15.05" defer></script>
+<script src="./tablero.js?v=2026-09-15.05" defer></script>
 </head>
 
 <body>
@@ -255,6 +258,7 @@ try{
     <p><b>Fuente:</b> Massive Caller. <i>Jalisco: intención al voto, alcaldías 2027</i>, corte 12 de agosto de 2026. N = 600 por municipio, margen de error declarado ±4.3 %.</p>
     <p><b>Nota de método:</b> el margen de error recalculado con z = 1.96 y p = 0.5 para N = 600 arroja ±4.0 %; la discrepancia se reporta y no se corrige la cifra de la fuente. La casa encuestadora no publica factores de ponderación ni post-estratificación, por lo que no se supone ninguno.</p>
     <p><b>*</b> Las cifras marcadas con asterisco fueron reconstruidas de las gráficas de tracking, que no incluyen tabla de valores. Error máximo de calibración: 0.257 puntos porcentuales.</p>
+    <p id="sello-version">Compilación <b>2026-09-15.05</b></p>
     <p><b>Derechos:</b> D.R. © Massive Caller S.A. de C.V., 2026. Reproducción sujeta a referencia al autor. No difundir durante veda electoral. — Elaboración: Alejandro Arjona.</p>
   </div>
 </footer>

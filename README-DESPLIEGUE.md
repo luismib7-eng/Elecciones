@@ -91,6 +91,30 @@ ganancia.
 3. Abre `https://arjona87.github.io/Elecciones/` con **Ctrl+Shift+R** para saltar
    la caché.
 
+## Comprobar en cinco segundos qué versión está publicada
+
+Cada entrega lleva un sello de compilación. Abre el sitio y mira el pie de
+página: dice **Compilación 2026-09-15.05**. Si dice otra cosa, o no dice nada,
+el servidor no está sirviendo estos archivos y cualquier auditoría sobre esa
+página describe código distinto del entregado.
+
+`tablero.js` compara su propio sello con el de `index.html`. Si no coinciden
+—porque solo se subió parte del paquete, o porque el navegador o el CDN de Pages
+guardan una copia vieja— aparece una franja naranja arriba con las dos versiones.
+
+Las rutas propias llevan `?v=2026-09-15.05`. Ese sufijo obliga al navegador y al
+CDN a pedir copias nuevas en lugar de reutilizar las guardadas, que es la causa
+habitual de que una corrección subida no se vea.
+
+**Si el pie no muestra la compilación esperada**, revisa en este orden:
+
+1. **Settings → Pages**: la rama y la carpeta de origen. Si publicas desde
+   `gh-pages` y estás subiendo a `main`, nada cambia nunca.
+2. **Actions**: que el despliegue haya terminado en verde, no en rojo ni en cola.
+3. Que `index.html` de la raíz sea el nuevo. Ábrelo en GitHub y busca
+   `tablero-version`: debe aparecer en las primeras líneas.
+4. Recarga con **Ctrl+Shift+R**.
+
 ## Verificación
 
 **A simple vista.** Tipografía Inter, tarjetas con borde redondeado, marca de
@@ -100,8 +124,8 @@ municipios y catorce olas, once gráficas dibujadas.
 **En la consola.** F12 → pestaña **Red** → recargar. Deben responder 200:
 
 ```
-index.html   estilos.css   tablero.js   data.js
-chart.umd.js (desde cdn.jsdelivr.net)
+index.html   estilos.css?v=…   tablero.js?v=…   data.js?v=…
+chart.umd.min.js (desde cdn.jsdelivr.net)
 ```
 
 `registro_full.json` no debe aparecer: solo se pide cuando `data.js` falla.

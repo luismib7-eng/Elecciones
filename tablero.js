@@ -30,6 +30,37 @@
    Con rutas relativas sin barra inicial, el tablero funciona igual en
    la raíz de un dominio que dentro de /Elecciones/ en GitHub Pages. */
 
+/* Sello de compilación. Debe coincidir con la etiqueta
+   <meta name="tablero-version"> de index.html. Tres rondas de depuración
+   se fueron en auditar un despliegue que no correspondía a los archivos
+   entregados; con el sello, saber qué versión está viva cuesta un vistazo
+   al pie de página. */
+var VERSION = "2026-09-15.05";
+
+function versionDelHtml() {
+  var m = document.querySelector('meta[name="tablero-version"]');
+  return m ? m.getAttribute("content") : null;
+}
+
+/* Avisa si index.html y tablero.js no son de la misma entrega: es lo que
+   ocurre cuando el servidor sirve un archivo en caché o cuando solo se
+   subió parte del paquete. */
+function comprobarVersion() {
+  var vHtml = versionDelHtml();
+  if (vHtml === VERSION) return;
+  var aviso = document.createElement("div");
+  aviso.setAttribute("role", "alert");
+  aviso.style.cssText =
+    "font:14px/1.5 system-ui,Arial,sans-serif;background:#8A4B12;color:#fff;" +
+    "padding:12px 16px;text-align:left";
+  aviso.textContent =
+    "Versiones mezcladas: index.html declara " + (vHtml || "ninguna versión") +
+    " y tablero.js es " + VERSION +
+    ". El servidor está entregando archivos de entregas distintas. " +
+    "Vuelve a subir el paquete completo y recarga con Ctrl+Shift+R.";
+  document.body.insertBefore(aviso, document.body.firstChild);
+}
+
 function pantallaDeFalla(titulo, detalle) {
   var main = document.getElementById("tablero");
   if (!main) return;
@@ -42,7 +73,7 @@ function pantallaDeFalla(titulo, detalle) {
   main.querySelector("h2").textContent = titulo;
   main.querySelector(".d").textContent = detalle;
   var sello = document.getElementById("sello");
-  if (sello) sello.textContent = "El tablero no pudo cargarse.";
+  if (sello) sello.textContent = "El tablero no pudo cargarse. Compilación " + VERSION + ".";
 }
 
 /* Aviso de hoja de estilos ausente. :root declara --css-ok; si el valor
@@ -204,6 +235,7 @@ function resolverDatos(seguir) {
 }
 
 function iniciarTablero() {
+comprobarVersion();
 avisarCssAusente();
 
 if (!window.DATA || !window.DATA.meta || !window.DATA.partido) {
@@ -2034,6 +2066,7 @@ function cargarChart(i) {
     return;
   }
   if (i >= ESPEJOS.length) {
+    comprobarVersion();
     avisarCssAusente();
     pantallaDeFalla(
       "No se cargó la biblioteca de gráficas",
