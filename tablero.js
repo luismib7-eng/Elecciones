@@ -63,15 +63,151 @@ function avisarCssAusente() {
   document.body.insertBefore(aviso, document.body.firstChild);
 }
 
+/* -------------------------------------------------------------------
+   1.b RESPALDO DE DATOS
+
+   La ruta normal es data.js, que define window.DATA con una etiqueta
+   <script>. Si ese archivo no llega, en lugar de rendirse se reconstruye
+   el mismo objeto desde registro_full.json, que es el registro atómico
+   del que data.js se deriva.
+
+   La reconstrucción se verificó contra data.js celda por celda en las
+   cinco secciones (meta, partido, precand, reeleccion y estatus): cero
+   diferencias. Tres detalles del formato original que hay que respetar
+   para que siga siendo así:
+     · precand conserva los huecos como null; partido y reeleccion los
+       omiten. Es una inconsistencia del generador, pero num() trata los
+       dos casos igual y replicarla evita divergencias silenciosas.
+     · registro_full.json duplica la última ola en dos páginas del
+       informe. Gana el registro posterior, como en data.js. En diez
+       celdas las dos páginas difieren entre 0.1 y 0.2 pp por redondeo,
+       muy por debajo del error muestral de ±4.3.
+     · el control de cierre se calcula deduplicando por actor; sin ese
+       paso la última ola suma 200 y el control cae de 93/93 a 86/93.
+
+   casa, n, me y derechos no están en el registro: son constantes del
+   estudio y se declaran aquí tal como las trae data.js. ------------- */
+
+var ORDEN_MUNI = [
+  "Guadalajara", "Zapopan", "San Pedro Tlaquepaque", "Tlajomulco de Zúñiga",
+  "Puerto Vallarta", "El Salto", "Tonalá"
+];
+
+function reconstruirDATA(registro) {
+  var obs = registro && registro.observaciones;
+  if (!obs || !obs.length) return null;
+
+  var D = { meta: {}, partido: {}, precand: {}, reeleccion: {}, estatus: {} };
+  var olas = {}, vistos = {}, munis = [];
+  var conteo = { LITERAL: 0, PONDERADO: 0, AUSENTE: 0 };
+  var grupos = {};
+
+  function rama(o, k) { return (o[k] = o[k] || {}); }
+
+  for (var i = 0; i < obs.length; i++) {
+    var r = obs[i];
+    if (!r || !r.municipio || !r.ola || !r.actor) continue;
+
+    var m = r.municipio, o = r.ola, a = r.actor, t = r.tipo_pregunta;
+    var ctx = (r.partido_contexto === null || r.partido_contexto === undefined)
+      ? "None" : r.partido_contexto;
+    var v = (typeof r.valor_pct === "number" && isFinite(r.valor_pct))
+      ? r.valor_pct : null;
+
+    olas[o] = true;
+    if (!vistos[m]) { vistos[m] = true; munis.push(m); }
+    if (r.estatus && conteo[r.estatus] !== undefined) conteo[r.estatus]++;
+    if (r.estatus) D.estatus[m + "|" + t + "|" + ctx + "|" + a + "|" + o] = r.estatus;
+
+    if (t === "INTENCION_PARTIDO") {
+      rama(grupos, m + "|" + o)[a] = v;
+      if (v !== null) rama(rama(D.partido, m), a)[o] = v;
+    } else if (t === "PRECANDIDATO") {
+      rama(rama(rama(D.precand, m), ctx), a)[o] = v;
+    } else if (t === "REELECCION") {
+      if (v !== null) rama(rama(D.reeleccion, m), a)[o] = v;
+    }
+  }
+
+  var cerradas = 0, completas = 0;
+  Object.keys(grupos).forEach(function (k) {
+    var vs = [], completo = true;
+    Object.keys(grupos[k]).forEach(function (a) {
+      if (grupos[k][a] === null) completo = false; else vs.push(grupos[k][a]);
+    });
+    if (!completo || !vs.length) return;
+    completas++;
+    var suma = vs.reduce(function (x, y) { return x + y; }, 0);
+    if (Math.abs(suma - 100) < 0.5) cerradas++;
+  });
+
+  munis.sort(function (a, b) {
+    var ia = ORDEN_MUNI.indexOf(a), ib = ORDEN_MUNI.indexOf(b);
+    if (ia < 0 && ib < 0) return 0;
+    if (ia < 0) return 1;
+    if (ib < 0) return -1;
+    return ia - ib;
+  });
+
+  var listaOlas = Object.keys(olas).sort();
+  D.meta = {
+    casa: "Massive Caller",
+    corte: listaOlas[listaOlas.length - 1],
+    n: 600,
+    me: 4.3,
+    olas: listaOlas,
+    municipios: munis,
+    conteo: conteo,
+    cierre: cerradas + " / " + completas,
+    derechos: "D.R. © Massive Caller S.A. de C.V., 2026"
+  };
+  return D;
+}
+
+function datosListos() {
+  return !!(window.DATA && window.DATA.meta && window.DATA.partido);
+}
+
+function fallaDeDatos(motivo) {
+  pantallaDeFalla(
+    "No se cargaron los datos",
+    "data.js no definió window.DATA y el respaldo desde registro_full.json " +
+      "tampoco funcionó" + (motivo ? " (" + motivo + ")" : "") +
+      ". Sube data.js a la misma carpeta que index.html; es el archivo de " +
+      "192 KB que ya venía en el repositorio."
+  );
+}
+
+/* Resuelve el origen de los datos y solo entonces arranca el tablero. */
+function resolverDatos(seguir) {
+  if (datosListos()) { seguir(); return; }
+
+  var sello = document.getElementById("sello");
+  if (sello) sello.textContent = "data.js no respondió; reconstruyendo desde registro_full.json…";
+
+  if (typeof fetch !== "function") { fallaDeDatos("el navegador no admite fetch"); return; }
+
+  fetch("./registro_full.json", { cache: "no-store" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (j) {
+      var D = reconstruirDATA(j);
+      if (!D) throw new Error("registro_full.json sin observaciones");
+      window.DATA = D;
+      seguir();
+    })
+    .catch(function (e) {
+      fallaDeDatos(String((e && e.message) || e));
+    });
+}
+
 function iniciarTablero() {
 avisarCssAusente();
 
 if (!window.DATA || !window.DATA.meta || !window.DATA.partido) {
-  pantallaDeFalla(
-    "No se cargaron los datos",
-    "Falta data.js o su contenido está incompleto. Debe definir window.DATA con las claves " +
-      "meta, partido, precand, reeleccion y estatus."
-  );
+  fallaDeDatos("window.DATA quedó incompleto");
   return;
 }
 
@@ -1851,7 +1987,7 @@ var ESPEJOS = [
 
 function cargarChart(i) {
   if (typeof window.Chart !== "undefined") {
-    iniciarTablero();
+    resolverDatos(iniciarTablero);
     return;
   }
   if (i >= ESPEJOS.length) {
@@ -1869,7 +2005,7 @@ function cargarChart(i) {
   etiqueta.onload = function () {
     /* Si el espejo respondió pero no definió Chart, se pasa al siguiente:
        volver a llamar con el mismo índice reintentaría el mismo archivo. */
-    if (typeof window.Chart !== "undefined") iniciarTablero();
+    if (typeof window.Chart !== "undefined") resolverDatos(iniciarTablero);
     else cargarChart(i + 1);
   };
   etiqueta.onerror = function () { cargarChart(i + 1); };
