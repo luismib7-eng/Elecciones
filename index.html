@@ -20,6 +20,16 @@ try{
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;600;700&display=swap">
+<!-- Alturas críticas en línea. Si estilos.css no llega o llega
+     incompleto, los contenedores de gráfica conservan alto y las
+     gráficas se dibujan igual, aunque sin formato. -->
+<style>
+  .lienzo{position:relative;min-height:250px}
+  .lienzo.alto{min-height:280px}
+  .lienzo.xalto{min-height:320px}
+  .lienzo>canvas{display:block}
+  #termo,#calor,#tabla,#traza,#kpis{min-height:60px}
+</style>
 <link rel="stylesheet" href="./estilos.css">
 
 <!-- Versión mayor fijada: sin el @4 se sirve "latest" y una versión 5 con

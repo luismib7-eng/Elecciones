@@ -268,10 +268,14 @@ main{
 }
 .tarjeta .control-local{margin-bottom:10px;max-width:320px}
 
-/* Lienzos: alto fluido, sin saltos entre breakpoints */
-.lienzo{position:relative;height:clamp(250px,42vw,300px)}
-.lienzo.alto{height:clamp(280px,52vw,380px)}
-.lienzo.xalto{height:clamp(320px,64vw,460px)}
+/* Lienzos: alto fluido, sin saltos entre breakpoints.
+   min-height acompaña siempre a height. Un lienzo de Chart.js dentro de
+   una caja de 0 px de alto se dibuja vacío sin lanzar ningún error, y ese
+   es justo el fallo que no deja rastro: la tarjeta aparece en blanco. El
+   suelo mínimo hace que ese estado sea imposible. */
+.lienzo{position:relative;height:clamp(250px,42vw,300px);min-height:250px}
+.lienzo.alto{height:clamp(280px,52vw,380px);min-height:280px}
+.lienzo.xalto{height:clamp(320px,64vw,460px);min-height:320px}
 @media (min-width:1100px){
   .lienzo{height:300px}
   .lienzo.alto{height:380px}
@@ -408,6 +412,15 @@ html[data-tema="oscuro"] .nota.alerta{background:#2B2113;border-color:#5A431F}
 .falla code{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;
   background:var(--surface-3);padding:1px 5px;border-radius:4px;
+}
+
+/* Aviso dentro de una tarjeta de gráfica: sustituye a la caja en blanco
+   cuando una vista no se puede dibujar o no tiene datos. */
+.aviso-vista{
+  position:absolute;inset:0;margin:0;display:grid;place-items:center;
+  text-align:center;padding:16px;
+  font-size:var(--t-sm);color:var(--muted);line-height:1.5;
+  background:var(--surface-2);border-radius:var(--r-sm);
 }
 
 /* Esqueletos de carga */

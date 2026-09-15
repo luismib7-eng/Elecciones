@@ -1636,7 +1636,6 @@ var VISTAS = [
 ];
 
 var sucias = {};
-var visibles = {};
 var porNombre = {};
 VISTAS.forEach(function (v) {
   v.nodo = $(v.el);
@@ -1674,38 +1673,113 @@ function panelDe(nodo) {
   return nodo ? nodo.closest(".panel-cuerpo") : null;
 }
 
+/* Una vista se puede pintar si su panel está desplegado. Nada más.
+
+   La versión anterior exigía además que un IntersectionObserver hubiera
+   confirmado que el contenedor entró en el viewport, y encadenaba el
+   dibujo a un requestAnimationFrame. Eso convertía el render en una
+   cadena de cuatro eslabones —observador, bandera de visibilidad,
+   coalescencia, rAF— donde cualquiera podía no dispararse: rAF se
+   congela en pestañas de segundo plano, el observador se comporta de
+   forma distinta con ancestros pegajosos o con la pestaña oculta, y la
+   bandera «pendiente» podía quedarse en true bloqueando los barridos
+   posteriores. Cuando la cadena se rompía, el resultado era una tarjeta
+   vacía sin ningún mensaje: el modo de falla que se observó en
+   producción.
+
+   El ahorro que compraba esa complejidad era menor —once gráficas sobre
+   un conjunto de 192 KB— y no compensaba el riesgo. Ahora se dibuja todo
+   lo que esté desplegado, en cuanto se pueda, con setTimeout en vez de
+   rAF para que también avance con la pestaña en segundo plano. Los
+   paneles plegados siguen difiriendo su dibujo, que es la única parte
+   del aplazamiento que aportaba algo real: evita crear gráficas dentro
+   de un contenedor de 0 px de alto. */
 function esVisible(v) {
   var p = panelDe(v.nodo);
-  if (p && p.hasAttribute("hidden")) return false;
-  return !!visibles[v.n];
+  return !(p && p.hasAttribute("hidden"));
+}
+
+/* Mensaje visible dentro de un contenedor de gráfica. Una caja en blanco
+   no informa a nadie; si una vista no se puede dibujar, tiene que
+   decirlo en pantalla y no solo en la consola. */
+function ponerAviso(cont, texto) {
+  if (!cont) return;
+  quitarAviso(cont);
+  var a = document.createElement("p");
+  a.className = "aviso-vista";
+  a.textContent = texto;
+  cont.appendChild(a);
+}
+
+function quitarAviso(cont) {
+  if (!cont) return;
+  var a = cont.querySelectorAll(".aviso-vista");
+  for (var i = 0; i < a.length; i++) a[i].remove();
 }
 
 function pintar(v) {
+  var cont = contenedorDe(v);
+  var esLienzo = v.nodo && v.nodo.tagName === "CANVAS";
+  quitarAviso(cont);
+
   try {
     v.fn();
   } catch (e) {
     /* Una vista que falle no debe tumbar el resto del tablero. */
-    var cont = contenedorDe(v);
     quitarEsqueleto(cont);
-    if (cont && v.nodo.tagName !== "CANVAS") {
+    if (esLienzo) {
+      ponerAviso(cont, "No se pudo construir esta gráfica: " + ((e && e.message) || e));
+    } else if (cont) {
       cont.innerHTML = '<p class="pie-nota">No se pudo construir esta vista con los datos actuales.</p>';
     }
     if (window.console) console.error("Vista «" + v.n + "»:", e);
+    sucias[v.n] = false;
+    return;
   }
+
   sucias[v.n] = false;
-  quitarEsqueleto(contenedorDe(v));
+  quitarEsqueleto(cont);
+
+  if (!esLienzo) return;
+
+  /* Autodiagnóstico: los nombres de las vistas y las claves de «graficas»
+     coinciden, así que se puede comprobar si la gráfica quedó construida
+     y si su caja tiene alto real. Las dos causas de tarjeta vacía que se
+     vieron en producción quedan así nombradas en pantalla. */
+  if (!graficas[v.n]) {
+    ponerAviso(cont, "Sin datos para la selección actual.");
+    return;
+  }
+  var caja = cont.getBoundingClientRect();
+  if (caja.height < 40 || caja.width < 40) {
+    ponerAviso(cont,
+      "El contenedor de esta gráfica quedó sin alto (" +
+      Math.round(caja.width) + "×" + Math.round(caja.height) +
+      " px). Falta estilos.css o una regla lo está colapsando.");
+  }
 }
 
-var pendiente = false;
-function procesar() {
-  if (pendiente) return;
-  pendiente = true;
-  requestAnimationFrame(function () {
-    pendiente = false;
-    VISTAS.forEach(function (v) {
-      if (sucias[v.n] && esVisible(v)) pintar(v);
-    });
-  });
+/* Coalescencia de barridos. setTimeout en lugar de requestAnimationFrame:
+   rAF no se ejecuta con la pestaña oculta y dejaba el barrido en cola de
+   forma indefinida. */
+var temporizador = null;
+
+function barrer() {
+  temporizador = null;
+  for (var i = 0; i < VISTAS.length; i++) {
+    var v = VISTAS[i];
+    if (sucias[v.n] && esVisible(v)) pintar(v);
+  }
+}
+
+function procesar(inmediato) {
+  if (inmediato) {
+    if (temporizador) { clearTimeout(temporizador); temporizador = null; }
+    barrer();
+    return;
+  }
+  if (temporizador) return;
+  temporizador = setTimeout(barrer, 0);
 }
 
 function invalidar(motivo) {
@@ -1718,36 +1792,12 @@ function invalidar(motivo) {
   procesar();
 }
 
-/* Fuerza el dibujado de todo, visible o no. Se usa antes de imprimir. */
+/* Fuerza el dibujado de todo, incluidos los paneles plegados. Se usa
+   antes de imprimir. */
 function pintarTodo() {
   VISTAS.forEach(function (v) {
     if (sucias[v.n]) pintar(v);
   });
-}
-
-/* Observador de visibilidad: una gráfica creada dentro de un panel
-   plegado nacía con un lienzo de 0 × 0 px. */
-if (window.IntersectionObserver) {
-  var obsVistas = new IntersectionObserver(function (entradas) {
-    var hay = false;
-    entradas.forEach(function (e) {
-      var nombre = e.target.getAttribute("data-vista-n");
-      if (e.isIntersecting && nombre) {
-        visibles[nombre] = true;
-        hay = true;
-      }
-    });
-    if (hay) procesar();
-  }, { rootMargin: "250px 0px" });
-
-  VISTAS.forEach(function (v) {
-    var cont = contenedorDe(v);
-    if (!cont) return;
-    cont.setAttribute("data-vista-n", v.n);
-    obsVistas.observe(cont);
-  });
-} else {
-  VISTAS.forEach(function (v) { visibles[v.n] = true; });
 }
 
 /* -------------------------------------------------------------------
@@ -1827,7 +1877,6 @@ window.addEventListener("beforeprint", function () {
       abrirPanel(cab, true);
     }
   });
-  VISTAS.forEach(function (v) { visibles[v.n] = true; });
   pintarTodo();
 });
 window.addEventListener("afterprint", function () {
@@ -1873,7 +1922,7 @@ function abrirPanel(cab, abrir) {
     else cuerpo.setAttribute("hidden", "");
   }
   if (abrir) {
-    procesar();
+    procesar(true);
     Object.keys(graficas).forEach(function (k) { graficas[k].resize(); });
   }
 }
@@ -1957,18 +2006,12 @@ VISTAS.forEach(ponerEsqueleto);
 medirBarra();
 montarObservadorCinta(altoBarraPrevio || 112);
 
-/* Sin IntersectionObserver todo se marca visible; con él, el observador
-   dispara el primer render de lo que esté en pantalla. */
-procesar();
+/* Primer dibujado, sin diferirlo: todo lo que esté desplegado se pinta ya. */
+procesar(true);
 
-/* Red de seguridad: si por cualquier motivo el observador no llegara a
-   disparar, a los 700 ms se dibuja lo que siga pendiente y visible. */
-setTimeout(function () {
-  VISTAS.forEach(function (v) {
-    if (sucias[v.n] && !panelDe(v.nodo).hasAttribute("hidden")) visibles[v.n] = true;
-  });
-  procesar();
-}, 700);
+/* Segundo barrido tras la carga completa de fuentes e imágenes, por si
+   alguna caja cambió de tamaño y alguna vista quedó pendiente. */
+window.addEventListener("load", function () { procesar(true); });
 
 }
 

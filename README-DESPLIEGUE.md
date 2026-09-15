@@ -58,7 +58,8 @@ que nombra el archivo que falta.
 |---|---|---|
 | Datos | `data.js` → reconstrucción desde `registro_full.json` | Pantalla: «No se cargaron los datos» |
 | Chart.js | cdn.jsdelivr.net → unpkg.com → `./chart.umd.js` local | Pantalla: «No se cargó la biblioteca de gráficas» |
-| Estilos | `estilos.css` | Franja roja arriba que lo nombra; el tablero sigue operando sin formato |
+| Estilos | `estilos.css` → alturas críticas en línea dentro de `index.html` | Franja roja arriba que lo nombra; las gráficas se dibujan igual, sin formato |
+| Gráfica suelta | se dibuja de forma aislada | Aviso dentro de la tarjeta, nunca una caja en blanco |
 
 La reconstrucción desde `registro_full.json` se verificó contra `data.js` celda
 por celda en las cinco secciones: **cero diferencias**, incluidos el conteo por
@@ -105,6 +106,12 @@ chart.umd.js (desde cdn.jsdelivr.net)
 
 `registro_full.json` no debe aparecer: solo se pide cuando `data.js` falla.
 Si lo ves en la lista, `data.js` no está llegando.
+
+**Si alguna tarjeta sale en blanco.** No debería poder ocurrir: cada tarjeta que
+no se puede dibujar escribe un aviso dentro de su propio recuadro, con el motivo.
+Si aun así encontraras una caja vacía, es un caso no previsto: manda el texto de
+la consola (F12 → **Consola**), que registra el nombre interno de la vista y la
+excepción.
 
 ## Copia local de Chart.js, opcional
 
